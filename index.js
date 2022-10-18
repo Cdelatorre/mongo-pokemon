@@ -1,7 +1,8 @@
-const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+dotenv.config();
 
-const MONGODB_URI =
-  "mongodb+srv://testUser:testUser123@cluster0.repty.mongodb.net/pokemonsample?retryWrites=true&w=majority";
+const mongoose = require("mongoose");
+const MONGODB_URI = process.env.MONGO_URI;
 
 mongoose
   .connect(MONGODB_URI, {
@@ -84,7 +85,7 @@ mongoose
       ])
       // Just for testing purposes
       .toArray((err, data) => {
-        console.log(data);
+        console.dir(data, { depth: null });
       });
 
     /*
@@ -118,6 +119,7 @@ mongoose
             ],
           },
         },
+        { $unwind: "$next_evolution" },
         {
           $lookup: {
             from: "samples_pokemon",
@@ -128,14 +130,27 @@ mongoose
         },
         {
           $addFields: {
-            "next_evolutions.spawn_time": {
-              $arrayElemAt: ["$evolution.spawn_time", 0],
+            "next_evolutions.avg_spawns": {
+              $arrayElemAt: ["$evolution.avg_spawns", 0],
+            },
+            "next_evolutions.name": {
+              $arrayElemAt: ["$evolution.name", 0],
+            },
+            "next_evolutions.num": {
+              $arrayElemAt: ["$evolution.num", 0],
             },
           },
         },
         {
           $match: {
-            "next_evolutions.spawn_time": { $regex: /^0(4)/g },
+            "next_evolutions.avg_spawns": { $gt: 4 },
+          },
+        },
+        {
+          $group: {
+            _id: "$name",
+            name: { $first: "$name" },
+            next_evolutions: { $push: "$next_evolutions" },
           },
         },
         {
@@ -143,16 +158,16 @@ mongoose
             _id: 0,
             name: 1,
             num: 1,
+            next_evolutions: 1,
           },
         },
       ])
       // Just for testing purposes
       .toArray((err, data) => {
-        console.log(data);
+        console.dir(data, { depth: null });
       });
-
-    // Just for test
   })
+
   .catch((err) => {
     console.error(`Error connecting to ${MONGODB_URI}`, err);
     process.exit(0);
